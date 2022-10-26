@@ -46,32 +46,42 @@ def get_need_photo(message: Message) -> None:
     elif message.text in ('Нет', 'нет', 'Неа', 'не', 'Не'):
         bot.send_message(message.from_user.id, 'Не надо, так не надо :) Нажми на кнопку, чтобы отправить запрос',
                          reply_markup=request_send_lowprice())
+        bot.set_state(message.from_user.id, LowPriceState.photo_count, message.chat.id)
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['photo_count'] = 0
     else:
         bot.send_message(message.from_user.id, f'Не понял. Показать фото отелей?')
 
 
-@bot.message_handler(state=LowPriceState.photo_count)
+@bot.message_handler(content_types=['text', 'request_send_lowprice'], state=LowPriceState.photo_count)
 def get_photo_count(message: Message) -> None:
     if int(message.text) in range(1, 21):
         bot.send_message(message.from_user.id, 'Окей, нажмите на кнопку, чтобы отправить запрос.',
                          reply_markup=request_send_lowprice())
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['photo_count'] = message.text
+    elif int(message.text) == 0:
+        if message.content_type == 'request_send_lowprice':
+            with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
+                text = f'Спасибо, ищем подходящие отели по следующему запросу:\n' \
+                       f'Город: {data["city"]}\n' \
+                       f'Сколько отелей показывать: {data["hotel_count"]}\n' \
+                       f'Показывать фото отелей: {data["need_photo"]}\n' \
+                       f'Сколько фото показывать: {data["photo_count"]}\n'
+                bot.send_message(message.from_user.id, text)
     else:
         bot.send_message(message.from_user.id, 'Sorry, могу показать только от 1 до 20 фоток отеля...')
 
 
-@bot.message_handler(content_types=['text', 'send_lowprice'], state=LowPriceState.photo_count)
-def get_lowprice(message: Message) -> None:
-    if message.content_type == 'send_lowprice':
-        with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
-            text = f'Спасибо, ищем подходящие отели по следующему запросу:\n' \
-                   f'Город: {data["city"]}\n' \
-                   f'Сколько отелей показывать: {data["hotel_count"]}\n' \
-                   f'Показывать фото отелей: {data["need_photo"]}\n' \
-                   f'Сколько фото показывать: {data["photo_count"]}\n'
-            bot.send_message(message.from_user.id, text)
-    else:
-        bot.send_message(message.from_user.id, 'Чтобы отправить запрос, нажмите на кнопку')
+# @bot.message_handler(content_types=['text', 'request_send_lowprice'], state=LowPriceState.photo_count)
+# def get_lowprice(message: Message) -> None:
+#     if message.content_type == 'request_send_lowprice':
+#         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
+#             text = f'Спасибо, ищем подходящие отели по следующему запросу:\n' \
+#                    f'Город: {data["city"]}\n' \
+#                    f'Сколько отелей показывать: {data["hotel_count"]}\n' \
+#                    f'Показывать фото отелей: {data["need_photo"]}\n' \
+#                    f'Сколько фото показывать: {data["photo_count"]}\n'
+#             bot.send_message(message.from_user.id, text)
+#     else:
+#         bot.send_message(message.from_user.id, 'Чтобы отправить запрос, нажмите на кнопку')
