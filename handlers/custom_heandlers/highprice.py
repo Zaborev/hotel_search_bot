@@ -1,20 +1,20 @@
 from loader import bot
-from states.lowprice import LowPriceState
+from states.highprice import HighPriceState
 from telebot.types import Message
 
 
-@bot.message_handler(commands=['lowprice'])
+@bot.message_handler(commands=['highprice'])
 def lowprice(message: Message) -> None:
-    bot.set_state(message.from_user.id, LowPriceState.city, message.chat.id)
+    bot.set_state(message.from_user.id, HighPriceState.city, message.chat.id)
     bot.send_message(message.from_user.id,
-                     f'{message.from_user.full_name}, введите город для поиска выгодных предложений')
+                     f'{message.from_user.full_name}, введите город для поиска отеля премиум - класса!')
 
 
-@bot.message_handler(state=LowPriceState.city)
+@bot.message_handler(state=HighPriceState.city)
 def get_city(message: Message) -> None:
     if message.text.isalpha():
         bot.send_message(message.from_user.id, 'Запомнил. Сколько отелей показать?')
-        bot.set_state(message.from_user.id, LowPriceState.hotels_count, message.chat.id)
+        bot.set_state(message.from_user.id, HighPriceState.hotels_count, message.chat.id)
 
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['city'] = message.text
@@ -22,11 +22,11 @@ def get_city(message: Message) -> None:
         bot.send_message(message.from_user.id, f'Повторите ввод. Название города должно содержать только буквы!')
 
 
-@bot.message_handler(state=LowPriceState.hotels_count)
+@bot.message_handler(state=HighPriceState.hotels_count)
 def get_hotels_count(message: Message) -> None:
     if message.text.isdigit() and int(message.text) in range(1, 11):
         bot.send_message(message.from_user.id, 'Окей. Показать фото найденных отелей? (Да/Нет)')
-        bot.set_state(message.from_user.id, LowPriceState.need_photo, message.chat.id)
+        bot.set_state(message.from_user.id, HighPriceState.need_photo, message.chat.id)
 
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['hotels_count'] = message.text
@@ -34,16 +34,16 @@ def get_hotels_count(message: Message) -> None:
         bot.send_message(message.from_user.id, f'Повторите ввод. Укажите количество отелей в выдаче (от 1 до 10)!')
 
 
-@bot.message_handler(state=LowPriceState.need_photo)
+@bot.message_handler(state=HighPriceState.need_photo)
 def get_need_photo(message: Message) -> None:
     if message.text in ('Да', 'да', 'Давай', 'ага', 'Ага'):
         bot.send_message(message.from_user.id, 'Хорошо. Сколько фотографий для каждого отеля выбрать?')
-        bot.set_state(message.from_user.id, LowPriceState.photo_count, message.chat.id)
+        bot.set_state(message.from_user.id, HighPriceState.photo_count, message.chat.id)
 
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['need_photo'] = message.text
     elif message.text in ('Нет', 'нет', 'Неа', 'не', 'Не'):
-        bot.set_state(message.from_user.id, LowPriceState.photo_count, message.chat.id)
+        bot.set_state(message.from_user.id, HighPriceState.photo_count, message.chat.id)
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['need_photo'] = message.text
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
@@ -59,7 +59,7 @@ def get_need_photo(message: Message) -> None:
         bot.send_message(message.from_user.id, f'Не понял. Нужны фото отелей? Введите Да/Нет')
 
 
-@bot.message_handler(state=LowPriceState.photo_count)
+@bot.message_handler(state=HighPriceState.photo_count)
 def get_photo_count(message: Message) -> None:
     if int(message.text) in range(1, 11):
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
