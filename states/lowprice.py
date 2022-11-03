@@ -6,3 +6,4 @@ class LowPriceState(StatesGroup):
     hotels_count = State()
     need_photo = State()
     photo_count = State()
+    results = State()
