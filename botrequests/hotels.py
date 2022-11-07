@@ -62,7 +62,6 @@ def parse_list(parse_list: list, uid: str, city: str, distance: str) -> list:
             if distance != '':
                 if float(distance) < float(center.split()[0].replace(',', '.')):
                     continue
-                    # return hotels
             hotels.append((uid, hotel_id, name, adress, center, price, coordinates, star_rating, user_rating))
         except (LookupError, ValueError) as exc:
             logger.exception(exc)
@@ -105,11 +104,28 @@ def request_list(id: str, list_param: list) -> list:
         logger.exception(exc)
 
 
-# param_list = ['Рим', '2022-11-01', '2022-11-01', '1', '50', 'alex', '/lowprice', '0', '100000', '20.0']
-#
-# result = (request_list(request_city('Рим')[0], param_list))
-#
-# counter = 1
-# for i in result:
-#     print(counter, ':', i)
-#     counter += 1
+def request_photo(id_hotel: str) -> list:
+    """Функция для запроса к API и получения данных о фотографиях"""
+    url = "https://hotels4.p.rapidapi.com/properties/get-hotel-photos"
+    querystring = {"id": id_hotel}
+    photos = []
+    try:
+        response = get_request(url, headers=headers, params=querystring)
+        data = json.loads(response.text)
+        for photo in data['hotelImages']:
+            url = photo['baseUrl'].replace('_{size}', '_z')
+            photos.append(url)
+        return photos
+    except (JSONDecodeError, TypeError) as exc:
+        logger.exception(exc)
+
+
+def check_foto(photo: str) -> bool:
+    """Функция для проверки URL фото"""
+    try:
+        check_photo = requests.get(url=photo, timeout=30)
+        if check_photo.status_code == 200:
+            return True
+    except requests.exceptions.RequestException as exc:
+        logger.exception(exc)
+

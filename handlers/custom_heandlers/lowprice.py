@@ -1,8 +1,9 @@
-from botrequests.hotels import request_city, request_list
+from botrequests.hotels import request_city, request_list, request_photo
 from loader import bot
 from states.lowprice import LowPriceState
 from telebot.types import Message
 from datetime import datetime
+from keyboards.reply.photo_mediagroup import create_media_group
 
 
 @bot.message_handler(commands=['lowprice'])
@@ -62,30 +63,55 @@ def get_need_photo(message: Message) -> None:
             parameters = [data["city"], str(current_day), str(current_day), '1', '50', message.from_user.full_name,
                           '/lowprice', '0', '100000', '20.0']
             results = (request_list(request_city(data["city"])[0], list_param=parameters))
-            data['results'] = results
-            for show in range(data["hotels_count"]):
-                print_info_about_hotel = f'{show+1}. {results[2]}\n' \
-                                         f'Адрес: {results[3]}\n' \
-                                         f'До центра города: {results[4]}\n' \
-                                         f'Цена за сутки: {results[5]}\n' \
-                                         f'Рейтинг: {results[8]}'
+            for show in range(int(data["hotels_count"])):
+                print_info_about_hotel = f'{show+1}. {results[show][2]}\n' \
+                                         f'Адрес: {results[show][3]}\n' \
+                                         f'Сайт: https://www.hotels.com/ho{results[show][1]}/\n'\
+                                         f'До центра города: {results[show][4]}\n' \
+                                         f'Цена за сутки: {results[show][5]} руб.\n' \
+                                         f'Рейтинг пользователей: {results[show][8]}'
                 bot.send_message(message.from_user.id, print_info_about_hotel)
-
     else:
         bot.send_message(message.from_user.id, f'Не понял. Нужны фото отелей? Введите Да/Нет')
 
 
 @bot.message_handler(state=LowPriceState.photo_count)
 def get_photo_count(message: Message) -> None:
-    if int(message.text) in range(1, 11):
+    if int(message.text) in range(1, 6):
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['photo_count'] = message.text
-        with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             text = f'Спасибо, ищем подходящие отели по следующему запросу:\n' \
                    f'Город: {data["city"]}\n' \
                    f'Сколько отелей показывать: {data["hotels_count"]}\n' \
                    f'Показывать фото отелей: {data["need_photo"]}\n' \
                    f'Сколько фото показывать: {data["photo_count"]}\n'
             bot.send_message(message.from_user.id, text)
+            current_day = datetime.now().date()
+            parameters = [data["city"], str(current_day), str(current_day), '1', '50', message.from_user.full_name,
+                          '/lowprice', '0', '100000', '20.0']
+            results = (request_list(request_city(data["city"])[0], list_param=parameters))
+            for show in range(int(data["hotels_count"])):
+                print_info_about_hotel = f'{show+1}. {results[show][2]}\n' \
+                                         f'Адрес: {results[show][3]}\n' \
+                                         f'Сайт: https://www.hotels.com/ho{results[show][1]}/\n' \
+                                         f'До центра города: {results[show][4]}\n' \
+                                         f'Цена за сутки: {results[show][5]} руб.\n' \
+                                         f'Рейтинг пользователей: {results[show][8]}\n' \
+                                         f'Фотографии:'
+                bot.send_message(message.from_user.id, print_info_about_hotel)
+                photos = request_photo(results[show][1])
+                if photos:
+                    media = create_media_group(photos, int(data["photo_count"]))
+                    if len(media) != 0:
+                        try:
+                            bot.send_media_group(chat_id=message.chat.id, media=media)
+                        except:
+                            media = create_media_group(photos, int(data["photo_count"]))
+                            if len(media) != 0:
+                                bot.send_media_group(chat_id=message.chat.id, media=media)
+                            else:
+                                bot.send_message(chat_id=message.chat.id, text='Фотографии не найдены')
+                else:
+                    bot.send_message(chat_id=id, text='Фотографии не найдены')
     else:
-        bot.send_message(message.from_user.id, 'Sorry, могу показать только от 1 до 10 фоток отеля...')
+        bot.send_message(message.from_user.id, 'Sorry, могу показать только от 1 до 5 фоток отеля...')
