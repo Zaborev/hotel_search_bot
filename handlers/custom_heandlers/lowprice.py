@@ -15,17 +15,20 @@ def lowprice(message: Message) -> None:
 
 @bot.message_handler(state=LowPriceState.city)
 def get_city(message: Message) -> None:
-    bot.send_message(message.from_user.id, 'Ищу запрашиваемый Вами город...')
-    r_city = request_city(message.text)[1]
-    if r_city.lower() == message.text.lower():
-        bot.send_message(message.from_user.id, 'Нашёл такой город в своем списке. Сколько отелей показать?')
-        bot.set_state(message.from_user.id, LowPriceState.hotels_count, message.chat.id)
+    if message.text.isalpha():
+        bot.send_message(message.from_user.id, 'Ищу запрашиваемый Вами город...')
+        r_city = request_city(message.text)[1]
+        if r_city.lower() == message.text.lower():
+            bot.send_message(message.from_user.id, 'Нашёл такой город в своем списке. Сколько отелей показать?')
+            bot.set_state(message.from_user.id, LowPriceState.hotels_count, message.chat.id)
 
-        with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
-            data['city'] = message.text
-            data['city_id'] = r_city[0]
+            with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
+                data['city'] = message.text
+                data['city_id'] = r_city[0]
+        else:
+            bot.send_message(message.from_user.id, f'У меня в базе нет такого города. Повторите ввод.')
     else:
-        bot.send_message(message.from_user.id, f'У меня в базе нет такого города. Повторите ввод.')
+        bot.send_message(message.from_user.id, f'Название города может содержать только буквы! Повторите ввод.')
 
 
 @bot.message_handler(state=LowPriceState.hotels_count)
