@@ -25,23 +25,21 @@ def get_request(url: str, headers: {}, params: {}) -> Response:
         logger.exception(exc)
 
 
-def request_city(city: str) -> tuple[Any, Any, str]:
+def request_city(city: str) -> tuple[Any, Any]:
     """Функция для запроса к API и получения данных о городе"""
     url = "https://hotels4.p.rapidapi.com/locations/v2/search"
     querystring = {"query": city, "locale": "ru_RU", "currency": "RUB"}
     try:
         request = get_request(url=url, headers=headers, params=querystring)
         data = json.loads(request.text)
-        coordinates = f'{data["suggestions"][0]["entities"][0]["latitude"]}+' \
-                      f'{data["suggestions"][0]["entities"][0]["longitude"]}'
         return (data["suggestions"][0]["entities"][0]["destinationId"],
-                data["suggestions"][0]["entities"][0]["name"], coordinates)
+                data["suggestions"][0]["entities"][0]["name"])
     except (LookupError, TypeError) as exc:
         logger.exception(exc)
 
 
 def parse_list(parse_list: list, uid: str, city: str, distance: str) -> list:
-    """Функция для подготовки данных к записи в бд"""
+    """Функция для подготовки данных к записи в базу данных"""
     hotels = []
     hotel_id, name, adress, center, price = '', '', '', 'нет данных', ''
 
@@ -62,7 +60,7 @@ def parse_list(parse_list: list, uid: str, city: str, distance: str) -> list:
             if distance != '':
                 if float(distance) < float(center.split()[0].replace(',', '.')):
                     continue
-            hotels.append((uid, hotel_id, name, adress, center, price, coordinates, star_rating, user_rating))
+            hotels.append((uid, hotel_id, name, adress, center, price, user_rating))
         except (LookupError, ValueError) as exc:
             logger.exception(exc)
             continue
@@ -114,7 +112,7 @@ def request_photo(id_hotel: str) -> list:
         data = json.loads(response.text)
         for photo in data['hotelImages']:
             url = photo['baseUrl'].replace('_{size}', '_z')
-            photos.append(url)
+            photos.append((id_hotel, url))
         return photos
     except (JSONDecodeError, TypeError) as exc:
         logger.exception(exc)
