@@ -2,24 +2,19 @@ from botrequests.hotels import request_city, request_list, request_photo
 from loader import bot
 from states.lowprice import LowPriceState
 from telebot.types import Message
-from datetime import datetime
 from keyboards.reply.photo_mediagroup import create_media_group
 from database import dbworker
+from config_data import config
 
-price_min = '0'
-price_max = '100000'
-people_count = '1'
+
 command = '/lowprice'
-distance = '20.0'
-current_day = datetime.now().date()
-date_and_time = datetime.now()
 
 
 @bot.message_handler(commands=['lowprice'])
 def lowprice(message: Message) -> None:
     bot.set_state(message.from_user.id, LowPriceState.city, message.chat.id)
     bot.send_message(message.from_user.id,
-                     f'{message.from_user.full_name}, введите город для поиска выгодных предложений')
+                     f'{message.from_user.full_name}, введите город для поиска выгодных предложений (на русском языке)')
 
 
 @bot.message_handler(state=LowPriceState.city)
@@ -71,13 +66,14 @@ def get_need_photo(message: Message) -> None:
                    f'Показывать фото отелей: {data["need_photo"]}\n' \
                    f'Сколько фото показывать: {data["photo_count"]}\n'
             bot.send_message(message.from_user.id, text)
-            parameters = [data["city"], str(current_day), str(current_day), people_count, data["hotels_count"],
-                          message.chat.id, command, price_min, price_max, distance]
+            parameters = [data["city"], str(config.current_day), str(config.current_day), config.people_count,
+                          data["hotels_count"], message.chat.id, command, config.price_min, config.price_max,
+                          config.distance]
             results = (request_list(request_city(data["city"])[0], list_param=parameters))
             history = (
-                str(message.chat.id), str(message.chat.id), str(date_and_time), data["city"],
-                str(current_day), str(current_day), data["hotels_count"], data['photo_count'], False, command,
-                price_min, price_max, distance)
+                str(message.chat.id), str(message.chat.id), str(config.date_and_time), data["city"],
+                str(config.current_day), str(config.current_day), data["hotels_count"], data['photo_count'], False,
+                command, config.price_min, config.price_max, config.distance)
             if dbworker.set_history(history=history):
                 dbworker.set_hotels(hotels=tuple(results))
             for show in range(int(data["hotels_count"])):
@@ -87,7 +83,7 @@ def get_need_photo(message: Message) -> None:
                                          f'До центра города: {results[show][4]}\n' \
                                          f'Цена за сутки: {results[show][5]} руб.\n' \
                                          f'Рейтинг пользователей: {results[show][6]}'
-                bot.send_message(message.from_user.id, print_info_about_hotel)
+                bot.send_message(message.from_user.id, print_info_about_hotel, disable_web_page_preview=True)
     else:
         bot.send_message(message.from_user.id, f'Не понял. Нужны фото отелей? Введите Да/Нет')
 
@@ -103,13 +99,14 @@ def get_photo_count(message: Message) -> None:
                    f'Показывать фото отелей: {data["need_photo"]}\n' \
                    f'Сколько фото показывать: {data["photo_count"]}\n'
             bot.send_message(message.from_user.id, text)
-            parameters = [data["city"], str(current_day), str(current_day), people_count, data["hotels_count"],
-                          message.chat.id, command, price_min, price_max, distance]
+            parameters = [data["city"], str(config.current_day), str(config.current_day), config.people_count,
+                          data["hotels_count"], message.chat.id, command, config.price_min, config.price_max,
+                          config.distance]
             results = (request_list(request_city(data["city"])[0], list_param=parameters))
             history = (
-                str(message.chat.id), str(message.chat.id), str(date_and_time), data["city"],
-                str(current_day), str(current_day), data["hotels_count"], data['photo_count'], False, command,
-                price_min, price_max, distance)
+                str(message.chat.id), str(message.chat.id), str(config.date_and_time), data["city"],
+                str(config.current_day), str(config.current_day), data["hotels_count"], data['photo_count'], False,
+                command, config.price_min, config.price_max, config.distance)
             if dbworker.set_history(history=history):
                 dbworker.set_hotels(hotels=tuple(results))
         for show in range(int(data["hotels_count"])):
@@ -120,7 +117,7 @@ def get_photo_count(message: Message) -> None:
                                      f'Цена за сутки: {results[show][5]} руб.\n' \
                                      f'Рейтинг пользователей: {results[show][6]}\n' \
                                      f'Фотографии:'
-            bot.send_message(message.from_user.id, print_info_about_hotel)
+            bot.send_message(message.from_user.id, print_info_about_hotel, disable_web_page_preview=True)
             photos = request_photo(results[show][1])
             dbworker.set_photos(photos=tuple(photos))
             if photos:
