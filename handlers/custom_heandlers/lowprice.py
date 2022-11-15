@@ -1,3 +1,7 @@
+from datetime import date
+
+from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
+
 from botrequests.hotels import request_city, request_list, request_photo
 from loader import bot
 from states.lowprice import LowPriceState
@@ -5,7 +9,7 @@ from telebot.types import Message
 from keyboards.reply.photo_mediagroup import create_media_group
 from database import dbworker
 from config_data import config
-
+from keyboards.inline import calendar
 
 command = '/lowprice'
 
@@ -23,16 +27,64 @@ def get_city(message: Message) -> None:
         bot.send_message(message.from_user.id, 'Ищу запрашиваемый Вами город...')
         r_city = request_city(message.text)[1]
         if r_city.lower() == message.text.lower():
-            bot.send_message(message.from_user.id, 'Нашёл такой город в своем списке. Сколько отелей показать?')
-            bot.set_state(message.from_user.id, LowPriceState.hotels_count, message.chat.id)
-
+            bot.send_message(message.from_user.id, 'Нашёл такой город. Задайте дату заезда в отель:')
+            calendar.get_calendar(message.chat.id)
             with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
                 data['city'] = message.text
-                data['city_id'] = r_city[0]
+            bot.set_state(message.from_user.id, LowPriceState.start_date, message.from_user.id)
         else:
             bot.send_message(message.from_user.id, f'У меня в базе нет такого города. Повторите ввод.')
     else:
         bot.send_message(message.from_user.id, f'Название города может содержать только буквы! Повторите ввод.')
+
+
+@bot.callback_query_handler(func=DetailedTelegramCalendar.func())
+def cal(callback):
+    result, key, step = DetailedTelegramCalendar(locale='ru', min_date=date.today()).process(callback.data)
+    if not result and key:
+        bot.edit_message_text(f"Выберите {LSTEP[step]}",
+                              callback.message.chat.id,
+                              callback.message.message_id,
+                              reply_markup=key)
+    elif result:
+        bot.edit_message_text(f"Вы выбрали дату заезда: {result}",
+                              callback.message.chat.id,
+                              callback.message.message_id)
+        with bot.retrieve_data(callback.message.chat.id, callback.message.chat.id) as data:
+            data['start_date'] = result
+        bot.set_state(callback.message.chat.id, LowPriceState.end_date, callback.message.chat.id)
+        bot.send_message(callback.message.chat.id, 'Выберите дату выезда из отеля')
+        calendar.get_calendar(callback.message.chat.id)
+
+
+@bot.callback_query_handler(func=DetailedTelegramCalendar.func())
+def cal2(callback):
+    result, key, step = DetailedTelegramCalendar(locale='ru', min_date=date.today()).process(callback.data)
+    if not result and key:
+        bot.edit_message_text(f"Выберите {LSTEP[step]}",
+                              callback.message.chat.id,
+                              callback.message.message_id,
+                              reply_markup=key)
+    elif result:
+        bot.edit_message_text(f"Вы выбрали дату выезда из отеля: {result}",
+                              callback.message.chat.id,
+                              callback.message.message_id)
+        with bot.retrieve_data(callback.message.chat.id, callback.message.chat.id) as data:
+            data['end_date'] = result
+        bot.set_state(callback.message.chat.id, LowPriceState.hotels_count, callback.message.chat.id)
+        bot.send_message(callback.message.chat.id, 'Сколько отелей показать?')
+
+
+@bot.message_handler(state=LowPriceState.end_date)
+def get_end_date(message: Message) -> None:
+    if message.text.isdigit() and int(message.text) in range(1, 31):
+        bot.send_message(message.from_user.id, 'Окей. Сколько отелей показать?')
+        bot.set_state(message.from_user.id, LowPriceState.hotels_count, message.chat.id)
+
+        with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
+            data['end_date'] = message.text
+    else:
+        bot.send_message(message.from_user.id, f'Повторите ввод. Заселиться можно максимум на 30 дней!')
 
 
 @bot.message_handler(state=LowPriceState.hotels_count)
@@ -56,23 +108,23 @@ def get_need_photo(message: Message) -> None:
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['need_photo'] = message.text
     elif message.text in ('Нет', 'нет', 'Неа', 'не', 'Не'):
-        # bot.set_state(message.from_user.id, LowPriceState.photo_count, message.chat.id)
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['need_photo'] = message.text
             data['photo_count'] = 0
             text = f'Спасибо, ищем подходящие отели по следующему запросу:\n' \
                    f'Город: {data["city"]}\n' \
+                   f'Даты проживания: {data["start_date"]} - {data["end_date"]}\n' \
                    f'Сколько отелей показывать: {data["hotels_count"]}\n' \
                    f'Показывать фото отелей: {data["need_photo"]}\n' \
                    f'Сколько фото показывать: {data["photo_count"]}\n'
             bot.send_message(message.from_user.id, text)
-            parameters = [data["city"], str(config.current_day), str(config.current_day), config.people_count,
+            parameters = [data["city"], data["start_date"], data["end_date"], config.people_count,
                           data["hotels_count"], message.chat.id, command, config.price_min, config.price_max,
                           config.distance]
             results = (request_list(request_city(data["city"])[0], list_param=parameters))
             history = (
                 str(message.chat.id), str(message.chat.id), str(config.date_and_time), data["city"],
-                str(config.current_day), str(config.current_day), data["hotels_count"], data['photo_count'], False,
+                data["start_date"], data["end_date"], data["hotels_count"], data['photo_count'], False,
                 command, config.price_min, config.price_max, config.distance)
             if dbworker.set_history(history=history):
                 dbworker.set_hotels(hotels=tuple(results))
@@ -96,6 +148,7 @@ def get_photo_count(message: Message) -> None:
             data['photo_count'] = message.text
             text = f'Спасибо, ищем подходящие отели по следующему запросу:\n' \
                    f'Город: {data["city"]}\n' \
+                   f'Даты проживания: {data["start_date"]} - {data["end_date"]}\n' \
                    f'Сколько отелей показывать: {data["hotels_count"]}\n' \
                    f'Показывать фото отелей: {data["need_photo"]}\n' \
                    f'Сколько фото показывать: {data["photo_count"]}\n'
