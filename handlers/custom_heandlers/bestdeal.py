@@ -126,6 +126,7 @@ def get_need_photo(message: Message) -> None:
                                          f'Цена за сутки: {results[show][5]} руб.\n' \
                                          f'Рейтинг пользователей: {results[show][6]}'
                 bot.send_message(message.from_user.id, print_info_about_hotel, disable_web_page_preview=True)
+        bot.delete_state(message.from_user.id, message.chat.id)
     else:
         bot.send_message(message.from_user.id, f'Не понял. Нужны фото отелей? Введите Да/Нет')
 
@@ -153,29 +154,34 @@ def get_photo_count(message: Message) -> None:
                 command, data["price_min"], data["price_max"], data["distance"])
             if dbworker.set_history(history=history):
                 dbworker.set_hotels(hotels=tuple(results))
-        for show in range(int(data["hotels_count"])):
-            print_info_about_hotel = f'{show + 1}. {results[show][2]}\n' \
-                                     f'Адрес: {results[show][3]}\n' \
-                                     f'Сайт: https://www.hotels.com/ho{results[show][1]}/\n' \
-                                     f'До центра города: {results[show][4]}\n' \
-                                     f'Цена за сутки: {results[show][5]} руб.\n' \
-                                     f'Рейтинг пользователей: {results[show][6]}\n' \
-                                     f'Фотографии:'
-            bot.send_message(message.from_user.id, print_info_about_hotel, disable_web_page_preview=True)
-            photos = request_photo(results[show][1])
-            dbworker.set_photos(photos=tuple(photos))
-            if photos:
-                media = create_media_group(photos, int(data["photo_count"]))
-                if len(media) != 0:
-                    try:
-                        bot.send_media_group(chat_id=message.chat.id, media=media)
-                    except:
+            if len(results) >= int(data["hotels_count"]):
+                for show in range(int(data["hotels_count"])):
+                    print_info_about_hotel = f'{show + 1}. {results[show][2]}\n' \
+                                             f'Адрес: {results[show][3]}\n' \
+                                             f'Сайт: https://www.hotels.com/ho{results[show][1]}/\n' \
+                                             f'До центра города: {results[show][4]}\n' \
+                                             f'Цена за сутки: {results[show][5]} руб.\n' \
+                                             f'Рейтинг пользователей: {results[show][6]}\n' \
+                                             f'Фотографии:'
+                    bot.send_message(message.from_user.id, print_info_about_hotel, disable_web_page_preview=True)
+                    photos = request_photo(results[show][1])
+                    dbworker.set_photos(photos=tuple(photos))
+                    if photos:
                         media = create_media_group(photos, int(data["photo_count"]))
                         if len(media) != 0:
-                            bot.send_media_group(chat_id=message.chat.id, media=media)
-                        else:
-                            bot.send_message(chat_id=message.chat.id, text='Фотографии не найдены')
+                            try:
+                                bot.send_media_group(chat_id=message.chat.id, media=media)
+                            except:
+                                media = create_media_group(photos, int(data["photo_count"]))
+                                if len(media) != 0:
+                                    bot.send_media_group(message.from_user.id, media=media)
+                                else:
+                                    bot.send_message(message.from_user.id, text='Фотографии не найдены')
+                    else:
+                        bot.send_message(message.from_user.id, text='Фотографии не найдены')
             else:
-                bot.send_message(chat_id=id, text='Фотографии не найдены')
+                bot.send_message(message.from_user.id, text='По вашему запросу ничего не найдено. Попробуйте изменить '
+                                                            'параметры поиска.')
+        bot.delete_state(message.from_user.id, message.chat.id)
     else:
         bot.send_message(message.from_user.id, 'Sorry, могу показать только от 1 до 5 фоток отеля...')

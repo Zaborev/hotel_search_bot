@@ -83,6 +83,7 @@ def get_need_photo(message: Message) -> None:
                                          f'Цена за сутки: {results[show][5]} руб.\n' \
                                          f'Рейтинг пользователей: {results[show][6]}'
                 bot.send_message(message.from_user.id, print_info_about_hotel, disable_web_page_preview=True)
+        bot.delete_state(message.from_user.id, message.chat.id)
     else:
         bot.send_message(message.from_user.id, f'Не понял. Нужны фото отелей? Введите Да/Нет')
 
@@ -131,6 +132,7 @@ def get_photo_count(message: Message) -> None:
                         else:
                             bot.send_message(chat_id=message.chat.id, text='Фотографии не найдены')
             else:
-                bot.send_message(chat_id=id, text='Фотографии не найдены')
+                bot.send_message(message.from_user.id, text='Фотографии не найдены')
+        bot.delete_state(message.from_user.id, message.chat.id)
     else:
         bot.send_message(message.from_user.id, 'Sorry, могу показать только от 1 до 5 фоток отеля...')
