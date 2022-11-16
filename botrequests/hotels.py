@@ -54,8 +54,6 @@ def parse_list(parse_list: list, uid: str, city: str, distance: str) -> list:
                 if hotel['landmarks'][0]['label'] == 'Центр города':
                     center = hotel['landmarks'][0]['distance']
             price = str(hotel['ratePlan']['price']['exactCurrent'])
-            coordinates = f"{hotel['coordinate'].get('lat', 0)},{hotel['coordinate'].get('lon', 0)}"
-            star_rating = str(hotel['starRating'])
             user_rating = hotel.get('guestReviews', {}).get('rating', 'нет данных').replace(',', '.')
             if distance != '':
                 if float(distance) < float(center.split()[0].replace(',', '.')):
@@ -71,8 +69,8 @@ def request_list(id: str, list_param: list) -> list:
     """Функция для запроса к API и получения основных данных"""
 
     url = "https://hotels4.p.rapidapi.com/properties/list"
-    check_in = '-'.join(list_param[1].split('.')[::-1])
-    check_out = '-'.join(list_param[2].split('.')[::-1])
+    check_in = list_param[1]
+    check_out = list_param[2]
     sort_order = ''
     landmark_ids = ''
     price_min = ''
@@ -126,4 +124,3 @@ def check_foto(photo: str) -> bool:
             return True
     except requests.exceptions.RequestException as exc:
         logger.exception(exc)
-
