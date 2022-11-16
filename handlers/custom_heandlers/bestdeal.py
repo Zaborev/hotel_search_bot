@@ -28,6 +28,7 @@ def get_city(message: Message) -> None:
         bot.send_message(message.from_user.id, 'Ищу запрашиваемый Вами город...')
         r_city = request_city(message.text)[1]
         if r_city.lower() == message.text.lower():
+            bot.delete_message(message.from_user.id)
             bot.send_message(message.from_user.id, 'Нашёл такой город.')
             calendar, step = DetailedTelegramCalendar(locale='ru', min_date=date.today()).build()
             bot.send_message(message.chat.id, f"Введите дату заезда", reply_markup=calendar)

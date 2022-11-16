@@ -45,7 +45,10 @@ def get_data(string: str) -> list:
     """Функция для получения данных из базы данных"""
     with sq.connect(config.db_file) as con:
         cur = con.cursor()
-        cur.execute(string)
+        try:
+            cur.execute(string)
+        except Exception:
+            pass
         return cur.fetchall()
 
 
