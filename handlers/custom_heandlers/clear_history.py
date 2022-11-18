@@ -12,7 +12,7 @@ def history(message: Message) -> None:
 
 
 @bot.message_handler(state=ClearHistory.first_state)
-def get_city(message: Message) -> None:
+def clear_history(message: Message) -> None:
     if message.text in ('Да', 'да', 'Давай', 'ага', 'Ага'):
         try:
             dbworker.delete_tables('hotels', 'history', 'photos')
@@ -24,3 +24,4 @@ def get_city(message: Message) -> None:
         bot.send_message(message.from_user.id, f'Операция отменена.')
     else:
         bot.send_message(message.from_user.id, f'⚠️Введите Да или Нет')
+    bot.delete_state(message.from_user.id, message.chat.id)
