@@ -25,56 +25,43 @@ def bestdeal(message: Message) -> None:
 @bot.message_handler(state=BestDealState.city)
 def get_city(message: Message) -> None:
     if message.text.isalpha():
-        bot.send_message(message.from_user.id, 'Ищу запрашиваемый Вами город...')
+        bot.send_message(message.from_user.id, 'Ищу запрашиваемый Вами город в своей базе...')
         r_city = request_city(message.text)[1]
         if r_city.lower() == message.text.lower():
-            bot.delete_message(message.from_user.id)
-            bot.send_message(message.from_user.id, 'Нашёл такой город.')
+            bot.send_message(message.from_user.id, 'Город найден.')
             calendar, step = DetailedTelegramCalendar(locale='ru', min_date=date.today()).build()
             bot.send_message(message.chat.id, f"Введите дату заезда", reply_markup=calendar)
             with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
                 data['city'] = message.text
         else:
             bot.send_message(message.from_user.id, f'⚠️У меня в базе нет такого города. Повторите ввод.')
+        bot.set_state(message.from_user.id, BestDealState.hotels_count, message.from_user.id)
     else:
         bot.send_message(message.from_user.id, f'⚠️Название города может содержать только буквы! Повторите ввод.')
 
 
-@bot.callback_query_handler(func=DetailedTelegramCalendar.func())
-def date_reply_bestdeal(call) -> None:
-    with bot.retrieve_data(call.message.chat.id, call.message.chat.id) as data:
-        if not data.get('start_date'):
-            result, key, step = DetailedTelegramCalendar(locale='ru', min_date=date.today()).process(call.data)
-        elif not data.get('end_date'):
-            new_start_date = data.get('start_date') + timedelta(1)
-            result, key, step = DetailedTelegramCalendar(locale='ru', min_date=new_start_date).process(call.data)
+@bot.message_handler(state=BestDealState.hotels_count)
+def get_hotels_count(message: Message) -> None:
+    if message.text.isdigit() and int(message.text) in range(1, 11):
+        bot.send_message(message.from_user.id, 'Окей. Задайте минимальную стоимость суток проживания в отеле:')
+        bot.set_state(message.from_user.id, BestDealState.price_min, message.chat.id)
 
-    if not result and key:
-        bot.edit_message_text("Введите дату", call.message.chat.id, call.message.message_id, reply_markup=key)
-    elif result:
-        with bot.retrieve_data(call.message.chat.id, call.message.chat.id) as data:
-            if not data.get('start_date'):
-                data['start_date'] = result
-                calendar, step = DetailedTelegramCalendar(locale='ru', min_date=result + timedelta(1)).build()
-                bot.edit_message_text("Введите дату выезда",
-                                      call.message.chat.id, call.message.message_id, reply_markup=calendar)
-            elif not data.get('end_date'):
-                data['end_date'] = result
-                bot.send_message(call.message.chat.id, 'Даты выбрали. Задайте минимальную стоимость суток '
-                                                       'проживания в отеле: ')
-                bot.set_state(call.message.chat.id, BestDealState.price_min, call.message.chat.id)
+        with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
+            data['hotels_count'] = message.text
+    else:
+        bot.send_message(message.from_user.id, f'Повторите ввод. Укажите количество отелей в выдаче (от 1 до 10)!')
 
 
 @bot.message_handler(state=BestDealState.price_min)
 def get_price_min(message: Message) -> None:
     if message.text.isdigit() and int(message.text) > 0:
         bot.send_message(message.from_user.id, 'Хорошо, запомнил. Переходим к следующему пункту. Задайте максимальную'
-                                               'суточную стоимость отеля:')
+                                               ' суточную стоимость отеля:')
         bot.set_state(message.from_user.id, BestDealState.price_max, message.chat.id)
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['price_min'] = message.text
     else:
-        bot.send_message(message.from_user.id, f'Минимальная стоимость суток проживания в отеле '
+        bot.send_message(message.from_user.id, f'Максимальная стоимость суток проживания в отеле '
                                                f'должна состоять из цифр и быть больше 0')
 
 
@@ -95,25 +82,13 @@ def get_price_max(message: Message) -> None:
 @bot.message_handler(state=BestDealState.distance)
 def get_price_max(message: Message) -> None:
     if message.text.isdigit() and float(message.text) > 0:
-        bot.send_message(message.from_user.id, 'ОК, запомнил. Сколько отелей показать?')
-        bot.set_state(message.from_user.id, BestDealState.hotels_count, message.chat.id)
+        bot.send_message(message.from_user.id, 'ОК, запомнил. Показать фото отелей?')
+        bot.set_state(message.from_user.id, BestDealState.need_photo, message.chat.id)
         with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
             data['distance'] = message.text
     else:
         bot.send_message(message.from_user.id, f'Расстояние от центра города до отеля'
                                                f'должно состоять из цифр и быть больше 0')
-
-
-@bot.message_handler(state=BestDealState.hotels_count)
-def get_hotels_count(message: Message) -> None:
-    if message.text.isdigit() and int(message.text) in range(1, 11):
-        bot.send_message(message.from_user.id, 'Окей. Показать фото найденных отелей? (Да/Нет)')
-        bot.set_state(message.from_user.id, BestDealState.need_photo, message.chat.id)
-
-        with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
-            data['hotels_count'] = message.text
-    else:
-        bot.send_message(message.from_user.id, f'Повторите ввод. Укажите количество отелей в выдаче (от 1 до 10)!')
 
 
 @bot.message_handler(state=BestDealState.need_photo)
@@ -135,7 +110,7 @@ def get_need_photo(message: Message) -> None:
             text = f'Спасибо, ищем подходящие отели по следующему запросу:\n' \
                    f'Город: {city}\n' \
                    f'Даты проживания: {start_date} - {end_date}\n' \
-                   f'Диапазон цен за сутки: {price_min} - {price_max}\n' \
+                   f'Диапазон цен за сутки: {price_min} - {price_max}\n руб.' \
                    f'Расстояние до центра города: {distance}\n' \
                    f'Сколько отелей показывать: {hotels_count}\n' \
                    f'Показывать фото отелей: {data["need_photo"]}\n' \

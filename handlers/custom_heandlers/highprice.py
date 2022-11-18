@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from telegram_bot_calendar import DetailedTelegramCalendar
+
 from botrequests.hotels import request_city, request_list, request_photo
 from loader import bot
 from states.highprice import HighPriceState
@@ -12,7 +13,7 @@ command = '/highprice'
 
 
 @bot.message_handler(commands=['highprice'])
-def lowprice(message: Message) -> None:
+def highprice(message: Message) -> None:
     bot.delete_state(message.from_user.id, message.chat.id)
     bot.set_state(message.from_user.id, HighPriceState.city, message.chat.id)
     bot.send_message(message.from_user.id,
@@ -26,6 +27,7 @@ def get_city(message: Message) -> None:
         r_city = request_city(message.text)[1]
         if r_city.lower() == message.text.lower():
             bot.send_message(message.from_user.id, 'Нашёл такой город.')
+            bot.set_state(message.from_user.id, HighPriceState.hotels_count, message.chat.id)
             calendar, step = DetailedTelegramCalendar(locale='ru', min_date=date.today()).build()
             bot.send_message(message.chat.id, f"Введите дату заезда", reply_markup=calendar)
             with bot.retrieve_data(message.from_user.id, message.chat.id) as data:
@@ -34,30 +36,6 @@ def get_city(message: Message) -> None:
             bot.send_message(message.from_user.id, f'⚠️У меня в базе нет такого города. Повторите ввод.')
     else:
         bot.send_message(message.from_user.id, f'⚠️Название города может содержать только буквы! Повторите ввод.')
-
-
-@bot.callback_query_handler(func=DetailedTelegramCalendar.func())
-def date_reply_highprice(call) -> None:
-    with bot.retrieve_data(call.message.chat.id, call.message.chat.id) as data:
-        if not data.get('start_date'):
-            result, key, step = DetailedTelegramCalendar(locale='ru', min_date=date.today()).process(call.data)
-        elif not data.get('end_date'):
-            new_start_date = data.get('start_date') + timedelta(1)
-            result, key, step = DetailedTelegramCalendar(locale='ru', min_date=new_start_date).process(call.data)
-
-    if not result and key:
-        bot.edit_message_text("Введите дату", call.message.chat.id, call.message.message_id, reply_markup=key)
-    elif result:
-        with bot.retrieve_data(call.message.chat.id, call.message.chat.id) as data:
-            if not data.get('start_date'):
-                data['start_date'] = result
-                calendar, step = DetailedTelegramCalendar(locale='ru', min_date=result + timedelta(1)).build()
-                bot.edit_message_text("Введите дату выезда",
-                                      call.message.chat.id, call.message.message_id, reply_markup=calendar)
-            elif not data.get('end_date'):
-                data['end_date'] = result
-                bot.send_message(call.message.chat.id, 'Даты выбрали. Сколько отелей показать?')
-                bot.set_state(call.message.chat.id, HighPriceState.hotels_count, call.message.chat.id)
 
 
 @bot.message_handler(state=HighPriceState.hotels_count)

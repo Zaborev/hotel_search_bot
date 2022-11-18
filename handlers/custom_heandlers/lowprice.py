@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from telegram_bot_calendar import DetailedTelegramCalendar
+
 from botrequests.hotels import request_city, request_list, request_photo
 from loader import bot
 from states.lowprice import LowPriceState
@@ -32,6 +33,7 @@ def get_city(message: Message) -> None:
                 data['city'] = message.text
         else:
             bot.send_message(message.from_user.id, f'⚠️У меня в базе нет такого города. Повторите ввод.')
+        bot.set_state(message.from_user.id, LowPriceState.hotels_count, message.chat.id)
     else:
         bot.send_message(message.from_user.id, f'⚠️Название города может содержать только буквы! Повторите ввод.')
 
@@ -46,7 +48,7 @@ def date_reply_lowprice(call) -> None:
             result, key, step = DetailedTelegramCalendar(locale='ru', min_date=new_start_date).process(call.data)
 
     if not result and key:
-        bot.edit_message_text("Введите дату", call.message.chat.id, call.message.message_id, reply_markup=key)
+        bot.edit_message_text("Введите дату заезда", call.message.chat.id, call.message.message_id, reply_markup=key)
     elif result:
         with bot.retrieve_data(call.message.chat.id, call.message.chat.id) as data:
             if not data.get('start_date'):
@@ -56,8 +58,8 @@ def date_reply_lowprice(call) -> None:
                                       call.message.chat.id, call.message.message_id, reply_markup=calendar)
             elif not data.get('end_date'):
                 data['end_date'] = result
-                bot.send_message(call.message.chat.id, 'Даты выбрали. Сколько отелей показать?')
-                bot.set_state(call.message.chat.id, LowPriceState.hotels_count, call.message.chat.id)
+                bot.send_message(call.message.chat.id, f'Вы выбрали даты: {data["start_date"]} - {data["end_date"]}')
+                bot.send_message(call.message.chat.id, f'Сколько отелей показать? (от 1 до 10)')
 
 
 @bot.message_handler(state=LowPriceState.hotels_count)
